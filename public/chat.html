@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Chat</title>
+  <style>
+    #video-grid {
+      display: flex;
+      flex-wrap: wrap;
+    }
+    video {
+      width: 100%;
+      max-width: 200px;
+    }
+    #controls {
+      position: fixed;
+      bottom: 10px;
+      width: 100%;
+      text-align: center;
+    }
+    button {
+      margin: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="video-grid"></div>
+  <div id="controls">
+    <button id="toggle-mic">マイクオン/オフ</button>
+    <button id="toggle-camera">カメラオン/オフ</button>
+    <button id="leave">退出</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io('/');
+    const videoGrid = document.getElementById('video-grid');
+    const myVideo = document.createElement('video');
+    myVideo.muted = true;
+
+    const peer = new Peer(undefined, {
+      host: '/',
+      port: '3001'
+    });
+
+    const roomId = new URLSearchParams(window.location.search).get('room');
+    let myStream;
+
+    navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true
+    }).then(stream => {
+      myStream = stream;
+      addVideoStream(myVideo, stream);
+
+      peer.on('call', call => {
+        call.answer(stream);
+        const video = document.createElement('video');
+        call.on('stream', userVideoStream => {
+          addVideoStream(video, userVideoStream);
+        });
+      });
+
+      socket.on('user-connected', userId => {
+        connectToNewUser(userId, stream);
+      });
+    });
+
+    socket.emit('join-room', roomId, peer.id);
+
+    socket.on('user-disconnected', userId => {
+      if (peers[userId]) peers[userId].close();
+    });
+
+    peer.on('open', id => {
+      socket.emit('join-room', roomId, id);
+    });
+
+    function connectToNewUser(userId, stream) {
+      const call = peer.call(userId, stream);
+      const video = document.createElement('video');
+      call.on('stream', userVideoStream => {
+        addVideoStream(video, userVideoStream);
+      });
+      call.on('close', () => {
+        video.remove();
+      });
+
+      peers[userId] = call;
+    }
+
+    function addVideoStream(video, stream) {
+      video.srcObject = stream;
+      video.addEventListener('loadedmetadata', () => {
+        video.play();
+      });
+      videoGrid.append(video);
+    }
+
+    document.getElementById('toggle-mic').onclick = () => {
+      myStream.getAudioTracks()[0].enabled = !myStream.getAudioTracks()[0].enabled;
+    };
+
+    document.getElementById('toggle-camera').onclick = () => {
+      myStream.getVideoTracks()[0].enabled = !myStream.getVideoTracks()[0].enabled;
+    };
+
+    document.getElementById('leave').onclick = () => {
+      window.location.href = '/';
+    };
+  </script>
+</body>
+</html>
