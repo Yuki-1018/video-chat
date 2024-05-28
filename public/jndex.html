@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Chat App</title>
+</head>
+<body>
+  <button id="create-room">ルーム作成</button>
+  <div id="room-url"></div>
+
+  <script>
+    document.getElementById('create-room').onclick = async () => {
+      const response = await fetch('/create-room');
+      const data = await response.json();
+      const roomUrl = `https://your-vercel-app.vercel.app/chat.html?room=${data.roomId}`;
+      document.getElementById('room-url').innerText = `作成しました。URLは ${roomUrl} です`;
+    };
+  </script>
+</body>
+</html>
